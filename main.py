@@ -18,8 +18,11 @@ pygame.mixer.init()
 WIDTH = 1200
 HEIGHT = 700
 
-screen = pygame.display.set_mode((WIDTH, HEIGHT))
-pygame.display.set_caption("AI Music Visualizer")
+screen = pygame.display.set_mode(
+    (WIDTH, HEIGHT),
+    pygame.FULLSCREEN
+)
+pygame.display.set_caption("Music Visualizer")
 
 clock = pygame.time.Clock()
 
