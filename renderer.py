@@ -10,7 +10,7 @@ class Renderer:
 
         self.particles = []
 
-        for _ in range(500):
+        for _ in range(100):
 
             self.particles.append([
                 random.uniform(-1, 1),
