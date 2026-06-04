@@ -148,7 +148,7 @@ while running:
     # DRAW
     # ------------------
 
-    screen.fill((20, 22, 35))
+    draw_space_background(screen)
 
     album_art.draw(screen)
 

@@ -2,6 +2,17 @@ import numpy as np
 import wave
 import random
 
+stars = [
+    (random.randint(0, WIDTH), random.randint(0, HEIGHT), random.randint(1, 3))
+    for _ in range(150)
+]
+
+def draw_space_background(screen):
+    screen.fill((0, 0, 0))  # black space
+
+    for x, y, size in stars:
+        pygame.draw.circle(screen, (255, 255, 255), (x, y), size)
+
 SAMPLE_RATE = 44100
 
 
