@@ -1,5 +1,3 @@
-# music_generator.py
-
 import numpy as np
 import wave
 import random
@@ -8,7 +6,7 @@ SAMPLE_RATE = 44100
 
 
 # -------------------------
-# BASIC WAVE FORMS
+# WAV SHAPES
 # -------------------------
 
 def sine(freq, t):
@@ -17,111 +15,129 @@ def sine(freq, t):
 def square(freq, t):
     return np.sign(np.sin(2 * np.pi * freq * t))
 
-def saw(freq, t):
-    return 2 * (t * freq - np.floor(0.5 + t * freq))
-
 
 # -------------------------
-# SOUND SYNTH
+# NOTE BUILDER
 # -------------------------
 
-def make_tone(freq, duration, wave_type="sine"):
+def make_note(freqs, duration):
     t = np.linspace(0, duration, int(SAMPLE_RATE * duration), False)
 
-    if wave_type == "sine":
-        audio = sine(freq, t)
-    elif wave_type == "square":
-        audio = square(freq, t)
-    else:
-        audio = saw(freq, t)
+    audio = np.zeros_like(t)
 
-    # fade in/out to avoid clicks
-    envelope = np.linspace(0, 1, len(audio))
-    envelope = np.minimum(envelope, np.linspace(1, 0, len(audio)))
+    for f in freqs:
+        audio += sine(f, t)
+
+    audio /= len(freqs)
+
+    # envelope (removes clicks)
+    envelope = np.sin(np.linspace(0, np.pi, len(audio)))
 
     return audio * envelope
 
 
-def build_track(pattern):
-    track = np.array([], dtype=np.float32)
+# -------------------------
+# DRUM BEAT
+# -------------------------
 
-    for freq, dur, wave_type in pattern:
-        tone = make_tone(freq, dur, wave_type)
-        track = np.concatenate((track, tone))
+def kick(dur):
+    t = np.linspace(0, dur, int(SAMPLE_RATE * dur), False)
+    return np.sin(2 * np.pi * 60 * t) * np.exp(-5 * t)
 
-    # normalize
-    if np.max(np.abs(track)) > 0:
-        track = track / np.max(np.abs(track))
-
-    return (track * 32767).astype(np.int16)
+def snare(dur):
+    noise = np.random.uniform(-1, 1, int(SAMPLE_RATE * dur))
+    return noise * np.exp(-8 * np.linspace(0, dur, len(noise)))
 
 
 # -------------------------
-# PROMPT → MUSIC MAPPING
+# TRACK BUILDER
+# -------------------------
+
+def build_track(chords, bpm=90):
+    beat = 60 / bpm
+    audio = []
+
+    for i, chord in enumerate(chords):
+
+        # chord
+        audio.append(make_note(chord, beat))
+
+        # simple drums
+        if i % 2 == 0:
+            audio[-1] += kick(beat)
+        else:
+            audio[-1] += snare(beat)
+
+    return np.concatenate(audio)
+
+
+# -------------------------
+# PROMPT → MUSIC MAP
 # -------------------------
 
 def generate_music(prompt):
 
     prompt = prompt.lower()
 
-    # LOFI
     if "lofi" in prompt or "chill" in prompt:
-        pattern = [
-            (220, 0.4, "sine"),
-            (196, 0.4, "sine"),
-            (174, 0.6, "sine"),
-            (196, 0.4, "sine"),
+
+        chords = [
+            [220, 261, 330],
+            [196, 247, 294],
+            [174, 220, 261],
+            [196, 247, 330],
         ] * 8
 
-    # JAZZ
+        bpm = 80
+
     elif "jazz" in prompt:
-        pattern = [
-            (261, 0.3, "sine"),
-            (311, 0.3, "sine"),
-            (370, 0.3, "sine"),
-            (440, 0.4, "sine"),
-        ] * 10
 
-    # ROCK
-    elif "rock" in prompt:
-        pattern = [
-            (110, 0.2, "square"),
-            (110, 0.2, "square"),
-            (165, 0.2, "square"),
-            (220, 0.2, "square"),
-        ] * 12
-
-    # DARK / CYBERPUNK
-    elif "dark" in prompt or "cyber" in prompt:
-        pattern = [
-            (60, 0.5, "saw"),
-            (65, 0.5, "saw"),
-            (70, 0.5, "saw"),
-            (65, 0.5, "saw"),
+        chords = [
+            [261, 311, 392],
+            [246, 293, 370],
+            [220, 277, 349],
+            [196, 247, 330],
         ] * 8
 
-    # HAPPY / POP
-    elif "happy" in prompt or "pop" in prompt:
-        pattern = [
-            (261, 0.3, "sine"),
-            (329, 0.3, "sine"),
-            (392, 0.3, "sine"),
-            (523, 0.3, "sine"),
+        bpm = 110
+
+    elif "rock" in prompt:
+
+        chords = [
+            [110, 165, 220],
+            [110, 147, 196],
+            [98, 147, 196],
+            [110, 165, 220],
         ] * 10
 
-    # DEFAULT RANDOM MUSIC
+        bpm = 140
+
+    elif "sad" in prompt:
+
+        chords = [
+            [220, 261, 329],
+            [196, 246, 311],
+            [174, 220, 261],
+        ] * 10
+
+        bpm = 70
+
     else:
-        base_notes = [220, 247, 262, 294, 330, 349, 392]
-        pattern = [
-            (
-                random.choice(base_notes),
-                random.choice([0.2, 0.3, 0.4]),
-                random.choice(["sine", "square"])
-            )
+
+        base = [220, 247, 262, 294, 330, 349, 392]
+
+        chords = [
+            random.sample(base, 3)
             for _ in range(30)
         ]
 
-    audio = build_track(pattern)
+        bpm = 100
+
+    audio = build_track(chords, bpm)
+
+    audio = audio / np.max(np.abs(audio)) * 32767
+
+    audio = audio.astype(np.int16)
 
     filename = "generated_music.wav"
 

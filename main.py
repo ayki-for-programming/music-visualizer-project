@@ -20,7 +20,6 @@ HEIGHT = 700
 
 screen = pygame.display.set_mode(
     (WIDTH, HEIGHT),
-    pygame.FULLSCREEN
 )
 pygame.display.set_caption("Music Visualizer")
 
