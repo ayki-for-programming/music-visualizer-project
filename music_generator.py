@@ -10,6 +10,20 @@ stars = [
 def draw_space_background(screen):
     screen.fill((0, 0, 0))  # black space
 
+    for i in range(len(stars)):
+
+        x, y, size = stars[i]
+
+        y += size * 0.2
+
+        if y > HEIGHT:
+            y = 0
+            x = random.randint(0, WIDTH)
+
+        stars[i] = (x, y, size)
+
+        pygame.draw.circle(screen, (255, 255, 255), (int(x), int(y)), size)
+
     for x, y, size in stars:
         pygame.draw.circle(screen, (255, 255, 255), (x, y), size)
 
