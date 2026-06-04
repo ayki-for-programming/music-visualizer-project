@@ -30,4 +30,3 @@ def generate_music(prompt):
         wav.writeframes(audio.tobytes())
 
     return filename
-    
