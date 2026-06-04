@@ -113,7 +113,7 @@ while running:
     for star in stars:
         pygame.draw.circle(screen, (255, 255, 255), star, 1)
 
-    # CLEAN WAVEFORM (FIXED CORE LOGIC)
+    # WAVEFORM 
 
     y = (samples / 32768.0) * (height / 2) + (height / 2)
     x_steps = np.linspace(0, width, len(y))
@@ -122,7 +122,7 @@ while running:
     y = prev_y * 0.6 + y * 0.4
     prev_y = y
 
-    # DRAW WAVEFORM (RED NEON)
+    # WAVEFORM COLOR(RED NEON)
 
     for i in range(1, len(y)):
 
