@@ -2,118 +2,133 @@
 
 import numpy as np
 import wave
+import random
 
 SAMPLE_RATE = 44100
 
 
-def note(freq, duration):
+# -------------------------
+# BASIC WAVE FORMS
+# -------------------------
 
-    t = np.linspace(
-        0,
-        duration,
-        int(SAMPLE_RATE * duration),
-        False
-    )
+def sine(freq, t):
+    return np.sin(2 * np.pi * freq * t)
 
-    wave_data = np.sin(
-        2 * np.pi * freq * t
-    )
+def square(freq, t):
+    return np.sign(np.sin(2 * np.pi * freq * t))
 
-    envelope = np.linspace(
-        1,
-        0.3,
-        len(wave_data)
-    )
-
-    return wave_data * envelope
+def saw(freq, t):
+    return 2 * (t * freq - np.floor(0.5 + t * freq))
 
 
-def generate_song(notes):
+# -------------------------
+# SOUND SYNTH
+# -------------------------
 
-    audio = np.array([])
+def make_tone(freq, duration, wave_type="sine"):
+    t = np.linspace(0, duration, int(SAMPLE_RATE * duration), False)
 
-    for freq, dur in notes:
+    if wave_type == "sine":
+        audio = sine(freq, t)
+    elif wave_type == "square":
+        audio = square(freq, t)
+    else:
+        audio = saw(freq, t)
 
-        audio = np.concatenate([
-            audio,
-            note(freq, dur)
-        ])
+    # fade in/out to avoid clicks
+    envelope = np.linspace(0, 1, len(audio))
+    envelope = np.minimum(envelope, np.linspace(1, 0, len(audio)))
 
-    audio = (
-        audio / np.max(np.abs(audio))
-        * 32767
-    )
+    return audio * envelope
 
-    return audio.astype(np.int16)
 
+def build_track(pattern):
+    track = np.array([], dtype=np.float32)
+
+    for freq, dur, wave_type in pattern:
+        tone = make_tone(freq, dur, wave_type)
+        track = np.concatenate((track, tone))
+
+    # normalize
+    if np.max(np.abs(track)) > 0:
+        track = track / np.max(np.abs(track))
+
+    return (track * 32767).astype(np.int16)
+
+
+# -------------------------
+# PROMPT → MUSIC MAPPING
+# -------------------------
 
 def generate_music(prompt):
 
     prompt = prompt.lower()
 
-    if "lofi" in prompt:
-
-        notes = [
-            (261.63, 0.5),
-            (329.63, 0.5),
-            (392.00, 0.5),
-            (329.63, 0.5),
-            (261.63, 0.8),
-            (196.00, 0.8),
-        ] * 6
-
-    elif "jazz" in prompt:
-
-        notes = [
-            (261.63, 0.3),
-            (311.13, 0.3),
-            (392.00, 0.4),
-            (466.16, 0.4),
-            (349.23, 0.3),
-            (440.00, 0.5),
-        ] * 6
-
-    elif "rock" in prompt:
-
-        notes = [
-            (196.00, 0.2),
-            (196.00, 0.2),
-            (293.66, 0.2),
-            (392.00, 0.2),
-            (293.66, 0.2),
-            (196.00, 0.2),
-        ] * 10
-
-    elif "sad" in prompt:
-
-        notes = [
-            (220.00, 0.8),
-            (261.63, 0.8),
-            (293.66, 0.8),
-            (261.63, 0.8),
-        ] * 6
-
-    else:
-
-        notes = [
-            (261.63, 0.4),
-            (293.66, 0.4),
-            (329.63, 0.4),
-            (392.00, 0.4),
+    # LOFI
+    if "lofi" in prompt or "chill" in prompt:
+        pattern = [
+            (220, 0.4, "sine"),
+            (196, 0.4, "sine"),
+            (174, 0.6, "sine"),
+            (196, 0.4, "sine"),
         ] * 8
 
-    audio = generate_song(notes)
+    # JAZZ
+    elif "jazz" in prompt:
+        pattern = [
+            (261, 0.3, "sine"),
+            (311, 0.3, "sine"),
+            (370, 0.3, "sine"),
+            (440, 0.4, "sine"),
+        ] * 10
+
+    # ROCK
+    elif "rock" in prompt:
+        pattern = [
+            (110, 0.2, "square"),
+            (110, 0.2, "square"),
+            (165, 0.2, "square"),
+            (220, 0.2, "square"),
+        ] * 12
+
+    # DARK / CYBERPUNK
+    elif "dark" in prompt or "cyber" in prompt:
+        pattern = [
+            (60, 0.5, "saw"),
+            (65, 0.5, "saw"),
+            (70, 0.5, "saw"),
+            (65, 0.5, "saw"),
+        ] * 8
+
+    # HAPPY / POP
+    elif "happy" in prompt or "pop" in prompt:
+        pattern = [
+            (261, 0.3, "sine"),
+            (329, 0.3, "sine"),
+            (392, 0.3, "sine"),
+            (523, 0.3, "sine"),
+        ] * 10
+
+    # DEFAULT RANDOM MUSIC
+    else:
+        base_notes = [220, 247, 262, 294, 330, 349, 392]
+        pattern = [
+            (
+                random.choice(base_notes),
+                random.choice([0.2, 0.3, 0.4]),
+                random.choice(["sine", "square"])
+            )
+            for _ in range(30)
+        ]
+
+    audio = build_track(pattern)
 
     filename = "generated_music.wav"
 
-    with wave.open(filename, "w") as wav:
-
-        wav.setnchannels(1)
-        wav.setsampwidth(2)
-        wav.setframerate(SAMPLE_RATE)
-
-        wav.writeframes(
-            audio.tobytes()
-        )
+    with wave.open(filename, "w") as f:
+        f.setnchannels(1)
+        f.setsampwidth(2)
+        f.setframerate(SAMPLE_RATE)
+        f.writeframes(audio.tobytes())
 
     return filename
