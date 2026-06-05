@@ -18,9 +18,7 @@ class Visualizer:
         if len(samples.shape) > 1:
             samples = samples.mean(axis=1)
 
-        # -----------------------------
         # CIRCLE POSITION (RIGHT SIDE)
-        # -----------------------------
         cx = int(self.w * 0.78)
         cy = int(self.h * 0.50)
 
@@ -30,9 +28,7 @@ class Visualizer:
 
         points = []
 
-        # -----------------------------
         # CIRCLE WAVEFORM ENGINE
-        # -----------------------------
         steps = 140  # resolution of circle
 
         for i in range(steps):
@@ -58,22 +54,16 @@ class Visualizer:
 
             points.append((x, y))
 
-        # -----------------------------
-        # DRAW OUTER GLOW RINGS
-        # -----------------------------
+        # OUTER GLOW RINGS
         pygame.draw.circle(screen, (25, 10, 18), (cx, cy), int(base_radius + 60))
         pygame.draw.circle(screen, (255, 40, 120), (cx, cy), int(base_radius), 2)
 
-        # -----------------------------
-        # DRAW WAVEFORM CIRCLE
-        # -----------------------------
+        # WAVEFORM CIRCLE
         if len(points) > 2:
 
             pygame.draw.lines(screen, (255, 60, 140), True, points, 2)
             pygame.draw.lines(screen, (255, 180, 220), True, points, 1)
 
-        # -----------------------------
         # CENTER PULSE (kick reaction feel)
-        # -----------------------------
         pulse = 6 + bass * 20
         pygame.draw.circle(screen, (255, 80, 160), (cx, cy), int(pulse))
