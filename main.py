@@ -1,11 +1,11 @@
 import pygame
 import numpy as np
+import wave
 import random
 
 from music_generator import generate_music
 from visualizer import Visualizer
 from audio_analyzer import get_frequency_bands
-from renderer import Renderer
 from album_art import AlbumArt
 
 # ------------------
@@ -21,47 +21,40 @@ screen = pygame.display.set_mode((WIDTH, HEIGHT))
 pygame.display.set_caption("AI Music Visualizer")
 
 clock = pygame.time.Clock()
-font = pygame.font.SysFont(None, 32)
+font = pygame.font.SysFont("arial", 28)
+small_font = pygame.font.SysFont("arial", 20)
 
 # ------------------
-# STARS
+# AUDIO READER
 # ------------------
 
-stars = [
-    [random.randint(0, WIDTH), random.randint(0, HEIGHT), random.randint(1, 3)]
-    for _ in range(150)
-]
-
-def draw_space(screen):
-    screen.fill((0, 0, 0))
-
-    for s in stars:
-        s[1] += s[2] * 0.2
-        if s[1] > HEIGHT:
-            s[1] = 0
-            s[0] = random.randint(0, WIDTH)
-
-        pygame.draw.circle(screen, (255, 255, 255), (int(s[0]), int(s[1])), s[2])
+def get_audio_samples(filename):
+    try:
+        with wave.open(filename, "rb") as wf:
+            frames = wf.readframes(2048)
+            samples = np.frombuffer(frames, dtype=np.int16)
+            return samples
+    except:
+        return np.zeros(1024)
 
 # ------------------
 # SYSTEMS
 # ------------------
 
 visualizer = Visualizer(WIDTH, HEIGHT)
-renderer = Renderer(WIDTH, HEIGHT)
 album = AlbumArt(WIDTH, HEIGHT)
 
-# ------------------
-# INPUT STATE
-# ------------------
-
 prompt = ""
+current_audio = None
 
-running = True
+playing = False
+beat_pulse = 0  # NEW
 
 # ------------------
 # LOOP
 # ------------------
+
+running = True
 
 while running:
 
@@ -74,16 +67,32 @@ while running:
 
         elif event.type == pygame.KEYDOWN:
 
-            if event.key == pygame.K_ESCAPE:
+            # ------------------
+            # PLAY / PAUSE
+            # ------------------
+
+            if event.key == pygame.K_SPACE:
+                if playing:
+                    pygame.mixer.music.pause()
+                    playing = False
+                else:
+                    pygame.mixer.music.unpause()
+                    playing = True
+
+            elif event.key == pygame.K_ESCAPE:
                 running = False
 
             elif event.key == pygame.K_RETURN:
 
                 if prompt.strip():
 
-                    music_file = generate_music(prompt)
-                    pygame.mixer.music.load(music_file)
+                    current_audio = generate_music(prompt)
+
+                    pygame.mixer.music.load(current_audio)
                     pygame.mixer.music.play()
+
+                    playing = True
+                    beat_pulse = 1.0  # trigger pulse on new song
 
                     prompt = ""
 
@@ -94,52 +103,82 @@ while running:
                 prompt += event.unicode
 
     # ------------------
-    # AUDIO (for visuals only)
+    # AUDIO DATA
     # ------------------
 
-    samples = np.zeros(1024)
+    if current_audio:
+        samples = get_audio_samples(current_audio)
+    else:
+        samples = np.zeros(1024)
+
     bass, mids, highs = get_frequency_bands(samples)
 
-    renderer.update(bass)
-
     # ------------------
-    # DRAW
+    # BEAT PULSE LOGIC
     # ------------------
 
-    draw_space(screen)
+    beat_pulse *= 0.92  # decay
+
+    if bass > 5:  # simple beat trigger
+        beat_pulse = min(1.0, beat_pulse + 0.25)
+
+    # ------------------
+    # BACKGROUND (dark Spotify)
+    # ------------------
+
+    intensity = int(20 + beat_pulse * 30)
+
+    screen.fill((10, 10, 15))
+
+    pygame.draw.rect(
+        screen,
+        (intensity, 20, intensity + 10),
+        (0, 0, WIDTH, HEIGHT)
+    )
+
+    # ------------------
+    # DRAW SYSTEMS
+    # ------------------
 
     album.draw(screen)
-    renderer.draw(screen)
-    visualizer.draw_wave(screen, samples)
+
+    visualizer.draw_wave(screen, samples, beat_pulse)
 
     # ------------------
-    # PROMPT BAR
+    # TEXT
     # ------------------
 
-    bar_h = 60
+    title = font.render("Now Playing", True, (200, 200, 200))
+    screen.blit(title, (380, 80))
 
-    pygame.draw.rect(
-        screen,
-        (20, 20, 30),
-        (20, HEIGHT - 80, WIDTH - 40, bar_h),
-        border_radius=12
-    )
+    if current_audio:
+        name = small_font.render(prompt.upper(), True, (255, 255, 255))
+        screen.blit(name, (380, 120))
 
-    pygame.draw.rect(
-        screen,
-        (255, 80, 160),
-        (20, HEIGHT - 80, WIDTH - 40, bar_h),
-        2,
-        border_radius=12
-    )
+    # ------------------
+    # PLAY / PAUSE UI
+    # ------------------
+
+    status = "PLAYING ▶" if playing else "PAUSED ⏸"
+
+    status_text = small_font.render(status, True, (30, 215, 96))
+    screen.blit(status_text, (WIDTH - 180, 30))
+
+    hint = small_font.render("SPACE = play/pause", True, (120, 120, 120))
+    screen.blit(hint, (WIDTH - 220, 55))
+
+    # ------------------
+    # INPUT BAR
+    # ------------------
+
+    pygame.draw.rect(screen, (25, 25, 35), (40, HEIGHT - 90, WIDTH - 80, 50), border_radius=15)
+
+    pygame.draw.rect(screen, (30, 215, 96), (40, HEIGHT - 90, WIDTH - 80, 50), 2, border_radius=15)
 
     text = prompt if prompt else "Type a music prompt..."
-    color = (255, 255, 255) if prompt else (150, 150, 150)
+    color = (255, 255, 255) if prompt else (140, 140, 140)
 
-    screen.blit(
-        font.render(text, True, color),
-        (40, HEIGHT - 62)
-    )
+    screen.blit(font.render(text, True, color), (60, HEIGHT - 78))
 
     pygame.display.flip()
 
