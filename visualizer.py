@@ -143,7 +143,7 @@ class Visualizer:
 
                 points.append((inner_x + x, y))
 
-            if len(points) > 1:
+         
 
                 pygame.draw.lines(screen, (255, 60, 120), False, points, 6)
                 pygame.draw.lines(screen, (255, 20, 90), False, points, 3)
