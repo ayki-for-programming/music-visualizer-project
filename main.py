@@ -21,13 +21,12 @@ viz = Visualizer(WIDTH, HEIGHT)
 # -------------------------
 # COLORS
 # -------------------------
-BG = (18, 10, 14)
 PINK = (255, 60, 120)
 WHITE = (255, 255, 255)
 DARK = (10, 6, 8)
 
 # -------------------------
-# PAD CONFIG (6 pads)
+# PAD CONFIG (3 rows × 2 cols)
 # -------------------------
 pads = [
     ("KICK", "kick"),
@@ -41,19 +40,27 @@ pads = [
 pad_rects = []
 pad_anim = []
 
-cols = 3
-size = (160, 110)
-start_x, start_y = 60, 140
-gap = 30
+cols = 2
+size = (200, 120)
+
+start_x = 60
+start_y = 140
+
+gap_x = 30
+gap_y = 25
 
 for i in range(len(pads)):
-    x = start_x + (i % cols) * (size[0] + gap)
-    y = start_y + (i // cols) * (size[1] + gap)
+    col = i % cols
+    row = i // cols
+
+    x = start_x + col * (size[0] + gap_x)
+    y = start_y + row * (size[1] + gap_y)
+
     pad_rects.append(pygame.Rect(x, y, *size))
     pad_anim.append(0.0)
 
 # -------------------------
-# KEY MAPPING
+# KEY MAP
 # -------------------------
 key_map = {
     pygame.K_1: 0,
@@ -65,7 +72,7 @@ key_map = {
 }
 
 # -------------------------
-# AUDIO BUFFER (visual fake input)
+# AUDIO BUFFER (for visuals only)
 # -------------------------
 audio_buffer = np.zeros(2048)
 
@@ -88,6 +95,7 @@ while running:
 
             if event.key in key_map:
                 i = key_map[event.key]
+
                 engine.play(pads[i][1])
                 pad_anim[i] = 1.0
 
@@ -133,12 +141,10 @@ while running:
     for i, rect in enumerate(pad_rects):
         pulse = pad_anim[i]
 
-        base = 40 + int(160 * pulse)
-
         color = (
-            base,
-            int(20 + pulse * 100),
-            int(60 + pulse * 140),
+            40 + int(160 * pulse),
+            20 + int(90 * pulse),
+            60 + int(140 * pulse),
         )
 
         # glow
@@ -156,7 +162,7 @@ while running:
         pygame.draw.rect(screen, PINK, rect, 2, border_radius=12)
 
         label = font.render(f"{i+1} {pads[i][0]}", True, WHITE)
-        screen.blit(label, (rect.x + 35, rect.y + 45))
+        screen.blit(label, (rect.x + 55, rect.y + 45))
 
     # -------------------------
     # CIRCULAR WAVEFORM (RIGHT SIDE)
