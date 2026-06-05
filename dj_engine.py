@@ -8,13 +8,8 @@ class DJEngine:
     def __init__(self):
         pygame.mixer.pre_init(SR, size=-16, channels=2, buffer=512)
         pygame.mixer.init()
-
         self.sounds = {}
-        self.make_sounds()
-
-    # -------------------------
-    # SOUND SYNTHS
-    # -------------------------
+        self._build()
 
     def sine(self, freq, t):
         return np.sin(2 * np.pi * freq * t)
@@ -22,49 +17,35 @@ class DJEngine:
     def noise(self, n):
         return np.random.uniform(-1, 1, n)
 
-    def to_stereo(self, mono):
+    def stereo(self, mono):
         mono = np.clip(mono, -1, 1)
-        audio = (mono * 32767).astype(np.int16)
-        stereo = np.column_stack((audio, audio))
-        return stereo
+        return np.column_stack((mono * 32767, mono * 32767)).astype(np.int16)
 
-    # -------------------------
-    # INSTRUMENTS
-    # -------------------------
-
-    def kick(self, dur=0.4):
+    def kick(self, dur=0.35):
         t = np.linspace(0, dur, int(SR * dur), False)
-        tone = np.sin(2 * np.pi * 60 * t) * np.exp(-8 * t)
-        return self.to_stereo(tone)
+        wave = np.sin(2 * np.pi * 60 * t) * np.exp(-8 * t)
+        return self.stereo(wave)
 
-    def snare(self, dur=0.25):
+    def snare(self, dur=0.2):
         n = self.noise(int(SR * dur))
         env = np.exp(-12 * np.linspace(0, dur, len(n)))
-        return self.to_stereo(n * env)
+        return self.stereo(n * env)
 
-    def hihat(self, dur=0.12):
+    def hihat(self, dur=0.1):
         n = self.noise(int(SR * dur))
         env = np.exp(-25 * np.linspace(0, dur, len(n)))
-        return self.to_stereo(n * env)
+        return self.stereo(n * env)
 
-    def bass(self, dur=0.4, freq=55):
+    def bass(self, dur=0.4):
         t = np.linspace(0, dur, int(SR * dur), False)
-        wave = np.sin(2 * np.pi * freq * t) * np.exp(-5 * t)
-        return self.to_stereo(wave)
+        wave = np.sin(2 * np.pi * 55 * t) * np.exp(-5 * t)
+        return self.stereo(wave)
 
-    # -------------------------
-    # CACHE SOUNDS
-    # -------------------------
-
-    def make_sounds(self):
+    def _build(self):
         self.sounds["kick"] = pygame.sndarray.make_sound(self.kick())
         self.sounds["snare"] = pygame.sndarray.make_sound(self.snare())
         self.sounds["hihat"] = pygame.sndarray.make_sound(self.hihat())
         self.sounds["bass"] = pygame.sndarray.make_sound(self.bass())
-
-    # -------------------------
-    # PLAY
-    # -------------------------
 
     def play(self, name):
         if name in self.sounds:
