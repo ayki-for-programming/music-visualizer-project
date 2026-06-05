@@ -2,56 +2,71 @@ import numpy as np
 import wave
 import random
 
-SAMPLE_RATE = 44100
+SR = 44100
 
 
-def sine(freq, t):
-    return np.sin(2 * np.pi * freq * t)
+def sine(f, t):
+    return np.sin(2 * np.pi * f * t)
 
 
-def make_chord(freqs, duration):
-    t = np.linspace(0, duration, int(SAMPLE_RATE * duration), False)
+def make_layer(freqs, dur, amp=1.0):
+    t = np.linspace(0, dur, int(SR * dur), False)
+    return sum(sine(f, t) for f in freqs) / len(freqs) * amp
 
-    audio = sum(sine(f, t) for f in freqs) / len(freqs)
 
-    envelope = np.sin(np.linspace(0, np.pi, len(audio)))
+def drum_kick(dur):
+    t = np.linspace(0, dur, int(SR * dur), False)
+    return np.sin(2 * np.pi * 60 * t) * np.exp(-5 * t)
 
-    return audio * envelope
+
+def snare(dur):
+    noise = np.random.uniform(-1, 1, int(SR * dur))
+    return noise * np.exp(-8 * np.linspace(0, dur, len(noise)))
 
 
 def generate_music(prompt):
 
-    prompt = prompt.lower()
+    p = prompt.lower()
 
-    if "lofi" in prompt:
+    if "lofi" in p or "chill" in p:
 
         chords = [
-            [220, 261, 330],
+            [220, 261, 329],
             [196, 247, 294],
             [174, 220, 261],
-        ] * 10
+        ]
 
         bpm = 80
 
-    elif "jazz" in prompt:
+    elif "jazz" in p:
 
         chords = [
             [261, 311, 392],
             [246, 293, 370],
             [220, 277, 349],
-        ] * 10
+        ]
 
         bpm = 110
 
-    elif "rock" in prompt:
+    elif "rock" in p:
 
         chords = [
             [110, 165, 220],
             [98, 147, 196],
             [110, 147, 220],
-        ] * 12
+        ]
 
         bpm = 140
+
+    elif "dark" in p or "cyber" in p:
+
+        chords = [
+            [65, 98, 130],
+            [73, 110, 146],
+            [65, 82, 130],
+        ]
+
+        bpm = 95
 
     else:
 
@@ -59,17 +74,28 @@ def generate_music(prompt):
 
         chords = [
             random.sample(base, 3)
-            for _ in range(25)
+            for _ in range(20)
         ]
 
         bpm = 100
 
     beat = 60 / bpm
 
-    audio = np.concatenate([
-        make_chord(ch, beat)
-        for ch in chords
-    ])
+    audio = []
+
+    for i, ch in enumerate(chords):
+
+        layer = make_layer(ch, beat)
+
+        # drums for rhythm (VERY IMPORTANT FIX)
+        if i % 2 == 0:
+            layer += drum_kick(beat) * 0.4
+        else:
+            layer += snare(beat) * 0.3
+
+        audio.append(layer)
+
+    audio = np.concatenate(audio)
 
     audio = audio / np.max(np.abs(audio))
     audio = (audio * 32767).astype(np.int16)
@@ -79,7 +105,7 @@ def generate_music(prompt):
     with wave.open(file, "w") as f:
         f.setnchannels(1)
         f.setsampwidth(2)
-        f.setframerate(SAMPLE_RATE)
+        f.setframerate(SR)
         f.writeframes(audio.tobytes())
 
     return file
