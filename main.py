@@ -235,12 +235,9 @@ while running:
     # MAIN CARD
     # ------------------
 
-    pygame.draw.rect(screen, CARD, (320, 90, 520, 520), border_radius=20)
 
     pulse = int(80 + bass * 120)
 
-    pygame.draw.circle(screen, GREEN, (580, 340), pulse)
-    pygame.draw.circle(screen, BASE_BG, (580, 340), pulse // 2)
 
     screen.blit(
         font_large.render(current_track, True, WHITE),
