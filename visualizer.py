@@ -14,7 +14,7 @@ class Visualizer:
 
 
     # ----------------------------
-    # PARTICLES
+    # PARTICLES (red/pink glow)
     # ----------------------------
 
     def update_particles(self, bass, mids):
@@ -23,17 +23,17 @@ class Visualizer:
 
         if intensity > 0.25:
 
-            for _ in range(int(1 + intensity * 4)):
+            for _ in range(int(1 + intensity * 5)):
 
                 self.particles.append([
 
-                    random.randint(self.w // 2 - 200, self.w // 2 + 200),
+                    random.randint(self.w // 2 - 250, self.w // 2 + 250),
                     self.h // 2,
 
-                    random.uniform(-2, 2),
+                    random.uniform(-2.2, 2.2),
                     random.uniform(-5, -1),
 
-                    random.randint(2, 4),
+                    random.randint(2, 5),
                     random.uniform(0.7, 1.0)
                 ])
 
@@ -52,7 +52,7 @@ class Visualizer:
 
 
     # ----------------------------
-    # SPECTRUM (inside card)
+    # SPECTRUM (red/pink bars)
     # ----------------------------
 
     def draw_spectrum(self, screen, samples, rect):
@@ -70,7 +70,7 @@ class Visualizer:
             fft = np.fft.rfft(samples)
             mag = np.abs(fft)
 
-            bars = 50
+            bars = 55
             chunk = max(1, len(mag) // bars)
 
             x_start = rect.x + 40
@@ -86,15 +86,22 @@ class Visualizer:
 
                 value = np.mean(mag[start:end])
 
-                height = int(min(180, value / 300))
+                height = int(min(220, value / 300))
 
                 x = x_start + i * (bar_w + spacing)
 
+                # red → pink gradient
+                color = (
+                    min(255, 180 + i * 2),
+                    40,
+                    min(255, 120 + i * 3)
+                )
+
                 pygame.draw.rect(
                     screen,
-                    (30, 180, 90),
+                    color,
                     (x, y_base - height, bar_w, height),
-                    border_radius=2
+                    border_radius=3
                 )
 
         except:
@@ -102,7 +109,7 @@ class Visualizer:
 
 
     # ----------------------------
-    # WAV FORM (CENTERED PANEL)
+    # WAVEFORM (centered panel only)
     # ----------------------------
 
     def draw_wave(self, screen, samples, bass, mids, highs):
@@ -118,29 +125,28 @@ class Visualizer:
                 samples = samples.mean(axis=1)
 
             # ----------------------------
-            # MAIN VISUAL CARD (CENTERED)
+            # CENTER PANEL (NO ALBUM VISUAL)
             # ----------------------------
 
             rect = pygame.Rect(
-                self.w // 2 - 350,
+                self.w // 2 - 380,
                 self.h // 2 - 200,
-                700,
-                350
+                760,
+                360
             )
 
-            # subtle background panel
+            # dark panel (no circle, no blob)
             pygame.draw.rect(
                 screen,
-                (28, 28, 28),
+                (20, 20, 22),
                 rect,
                 border_radius=20
             )
 
-            # waveform area
             inner_x = rect.x + 30
             inner_y = rect.y + 40
             inner_w = rect.width - 60
-            inner_h = rect.height - 100
+            inner_h = rect.height - 80
 
             center_y = inner_y + inner_h // 2
 
@@ -159,7 +165,10 @@ class Visualizer:
 
                 amp = (samples[idx] / 32768) * reaction
 
-                y = center_y + int(amp * (80 + bass * 120))
+                y = center_y + int(amp * 120)
+
+                # clamp inside panel
+                y = max(rect.y + 20, min(rect.y + rect.height - 20, y))
 
                 points.append((inner_x + x, y))
 
@@ -168,41 +177,44 @@ class Visualizer:
 
             if len(points) > 1:
 
+                # outer glow (pink/red)
                 pygame.draw.lines(
                     screen,
-                    (40, glow, 120),
+                    (255, 80, 140),
                     False,
                     points,
-                    thickness + 6
+                    thickness + 7
                 )
 
+                # mid glow
                 pygame.draw.lines(
                     screen,
-                    (90, 255, 180),
+                    (255, 40, 90),
                     False,
                     points,
-                    thickness + 3
+                    thickness + 4
                 )
 
+                # core line
                 pygame.draw.lines(
                     screen,
-                    (29, 185, 84),
+                    (255, 20, 60),
                     False,
                     points,
                     thickness
                 )
 
-            # spectrum INSIDE same card
+            # spectrum inside panel
             self.draw_spectrum(screen, samples, rect)
 
-            # particles centered
+            # particles (pink/red)
             self.update_particles(bass, mids)
 
             for p in self.particles:
 
                 pygame.draw.circle(
                     screen,
-                    (29, 185, 84),
+                    (255, 60, 120),
                     (int(p[0]), int(p[1])),
                     int(p[4])
                 )
