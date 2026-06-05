@@ -12,42 +12,31 @@ class Visualizer:
 
         self.particles = []
 
-    # ------------------
-    # PARTICLES
-    # ------------------
 
-    def update_particles(self, bass):
+    # ----------------------------
+    # PARTICLES (music reactive)
+    # ----------------------------
 
-        if bass > 0.25:
+    def update_particles(self, bass, mids):
 
-            for _ in range(3):
+        intensity = bass + mids
 
-                self.particles.append(
+        # spawn particles on beat energy
+        if intensity > 0.25:
 
-                    [
-                        random.randint(
-                            300,
-                            self.w - 100
-                        ),
+            for _ in range(int(1 + intensity * 6)):
 
-                        self.h // 2,
+                self.particles.append([
 
-                        random.uniform(
-                            -2,
-                            2
-                        ),
+                    random.randint(320, self.w - 50),
+                    self.h // 2,
 
-                        random.uniform(
-                            -4,
-                            -1
-                        ),
+                    random.uniform(-2.5, 2.5),
+                    random.uniform(-6, -1),
 
-                        random.randint(
-                            2,
-                            5
-                        )
-                    ]
-                )
+                    random.randint(2, 5),   # size
+                    random.uniform(0.7, 1.0) # life
+                ])
 
         alive = []
 
@@ -56,237 +45,159 @@ class Visualizer:
             p[0] += p[2]
             p[1] += p[3]
 
-            p[4] -= 0.03
+            p[5] -= 0.02
 
-            if p[4] > 0:
-
+            if p[5] > 0:
                 alive.append(p)
 
         self.particles = alive
 
-    # ------------------
-    # SPECTRUM
-    # ------------------
 
-    def draw_spectrum(
-        self,
-        screen,
-        samples
-    ):
+    # ----------------------------
+    # SPECTRUM (Spotify bars)
+    # ----------------------------
 
-        if len(samples) < 256:
+    def draw_spectrum(self, screen, samples):
+
+        if len(samples) < 128:
             return
 
         try:
+            samples = samples.astype(np.float32)
 
-            samples = samples.astype(
-                np.float32
-            )
+            # stereo → mono safety
+            if len(samples.shape) > 1:
+                samples = samples.mean(axis=1)
 
             fft = np.fft.rfft(samples)
-
             mag = np.abs(fft)
 
-            bars = 64
+            bars = 60
+            chunk = max(1, len(mag) // bars)
 
-            chunk = max(
-                1,
-                len(mag) // bars
-            )
+            x_start = 320
+            y_base = self.h - 170
 
-            start_x = 320
-
-            width = 10
-
+            bar_w = 8
             spacing = 5
 
             for i in range(bars):
 
-                begin = i * chunk
-                end = begin + chunk
+                start = i * chunk
+                end = start + chunk
 
-                value = np.mean(
-                    mag[begin:end]
-                )
+                value = np.mean(mag[start:end])
 
-                height = min(
-                    250,
-                    int(value / 300)
-                )
+                height = int(min(260, value / 250))
 
-                x = start_x + (
-                    i * (
-                        width + spacing
-                    )
-                )
+                x = x_start + i * (bar_w + spacing)
 
-                y = self.h - 180
-
+                # gradient green
                 color = (
                     30,
-                    min(
-                        255,
-                        180 + i
-                    ),
-                    96
+                    min(255, 120 + i * 2),
+                    90
                 )
 
                 pygame.draw.rect(
                     screen,
                     color,
-                    (
-                        x,
-                        y - height,
-                        width,
-                        height
-                    ),
+                    (x, y_base - height, bar_w, height),
                     border_radius=3
                 )
 
-        except:
-            pass
+        except Exception as e:
+            print("Spectrum error:", e)
 
-    # ------------------
-    # WAVEFORM
-    # ------------------
 
-    def draw_wave(
-        self,
-        screen,
-        samples,
-        bass
-    ):
+    # ----------------------------
+    # WAVEFORM (main visual)
+    # ----------------------------
+
+    def draw_wave(self, screen, samples, bass, mids, highs):
 
         if len(samples) < 10:
             return
 
         try:
 
-            samples = samples.astype(
-                np.float32
-            )
+            samples = samples.astype(np.float32)
 
-            center_y = (
-                self.h // 2
-            )
+            # stereo → mono safety
+            if len(samples.shape) > 1:
+                samples = samples.mean(axis=1)
 
-            step = max(
-                1,
-                len(samples) // (
-                    self.w - 300
-                )
-            )
+            center_y = self.h // 2
+
+            width_area = self.w - 320
+
+            step = max(1, len(samples) // width_area)
 
             points = []
 
-            start_x = 300
+            reaction = 1 + bass * 4 + mids * 2
 
-            for x in range(
-                self.w - 320
-            ):
+            for x in range(width_area):
 
                 idx = x * step
 
                 if idx >= len(samples):
                     break
 
-                amp = (
-                    samples[idx]
-                    / 32768
+                amp = (samples[idx] / 32768) * reaction
+
+                y = center_y + int(
+                    amp * (160 + bass * 250)
                 )
 
-                y = (
-                    center_y
-                    + int(
-                        amp * 180
-                    )
-                )
+                points.append((320 + x, y))
 
-                points.append(
-                    (
-                        start_x + x,
-                        y
-                    )
-                )
-
-            glow = int(
-                120 + bass * 100
-            )
-
-            thickness = int(
-                2 + bass * 10
-            )
+            glow = int(120 + bass * 120)
+            thickness = int(2 + bass * 8)
 
             if len(points) > 1:
 
+                # outer glow
                 pygame.draw.lines(
                     screen,
-                    (
-                        40,
-                        glow,
-                        120
-                    ),
+                    (40, glow, 120),
                     False,
                     points,
                     thickness + 8
                 )
 
+                # mid glow
                 pygame.draw.lines(
                     screen,
-                    (
-                        100,
-                        255,
-                        180
-                    ),
+                    (90, 255, 180),
                     False,
                     points,
                     thickness + 4
                 )
 
+                # core line
                 pygame.draw.lines(
                     screen,
-                    (
-                        29,
-                        185,
-                        84
-                    ),
+                    (29, 185, 84),
                     False,
                     points,
                     thickness
                 )
 
-            self.draw_spectrum(
-                screen,
-                samples
-            )
+            # spectrum bars
+            self.draw_spectrum(screen, samples)
 
-            self.update_particles(
-                bass
-            )
+            # particles
+            self.update_particles(bass, mids)
 
             for p in self.particles:
 
                 pygame.draw.circle(
-
                     screen,
-
-                    (
-                        29,
-                        185,
-                        84
-                    ),
-
-                    (
-                        int(p[0]),
-                        int(p[1])
-                    ),
-
+                    (29, 185, 84),
+                    (int(p[0]), int(p[1])),
                     int(p[4])
                 )
 
         except Exception as e:
-
-            print(
-                "Visualizer error:",
-                e
-            )
+            print("Visualizer error:", e)
