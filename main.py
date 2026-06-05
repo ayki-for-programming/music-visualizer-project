@@ -10,7 +10,7 @@ pygame.init()
 # FULLSCREEN SETUP
 screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
 WIDTH, HEIGHT = screen.get_size()
-pygame.display.set_caption("DJ PAD ENGINE")
+pygame.display.set_caption("AY-DJ PAD")
 
 clock = pygame.time.Clock()
 font = pygame.font.SysFont("arial", 24, bold=True)
@@ -125,7 +125,7 @@ while running:
     ))
 
     # TITLE
-    screen.blit(font.render("AY-DJ PAD(1-6 / click / ESC exit)", True, WHITE), (40, 30))
+    screen.blit(font.render("AY-DJ PAD (1-6 / click / ESC exit)", True, WHITE), (40, 30))
 
     # LEFT SIDE PADS
     for i, rect in enumerate(pad_rects):
