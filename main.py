@@ -1,72 +1,67 @@
 import pygame
-import pyaudio
 import numpy as np
+import random
 
 from music_generator import generate_music
 from visualizer import Visualizer
 from audio_analyzer import get_frequency_bands
-from album_art import AlbumArt
 from renderer import Renderer
+from album_art import AlbumArt
 
 # ------------------
-# PYGAME
+# INIT
 # ------------------
 
 pygame.init()
 pygame.mixer.init()
 
-WIDTH = 1200
-HEIGHT = 700
+WIDTH, HEIGHT = 1200, 700
 
-screen = pygame.display.set_mode(
-    (WIDTH, HEIGHT),
-)
-pygame.display.set_caption("Music Visualizer")
+screen = pygame.display.set_mode((WIDTH, HEIGHT))
+pygame.display.set_caption("AI Music Visualizer")
 
 clock = pygame.time.Clock()
-
 font = pygame.font.SysFont(None, 32)
 
 # ------------------
-# PROMPT
+# STARS
 # ------------------
 
-prompt = ""
+stars = [
+    [random.randint(0, WIDTH), random.randint(0, HEIGHT), random.randint(1, 3)]
+    for _ in range(150)
+]
 
-music_loaded = False
+def draw_space(screen):
+    screen.fill((0, 0, 0))
 
-# ------------------
-# AUDIO STREAM
-# ------------------
+    for s in stars:
+        s[1] += s[2] * 0.2
+        if s[1] > HEIGHT:
+            s[1] = 0
+            s[0] = random.randint(0, WIDTH)
 
-CHUNK = 1024
-RATE = 44100
-
-p = pyaudio.PyAudio()
-
-stream = p.open(
-    format=pyaudio.paInt16,
-    channels=1,
-    rate=RATE,
-    input=True,
-    frames_per_buffer=CHUNK
-)
+        pygame.draw.circle(screen, (255, 255, 255), (int(s[0]), int(s[1])), s[2])
 
 # ------------------
 # SYSTEMS
 # ------------------
 
 visualizer = Visualizer(WIDTH, HEIGHT)
-
-album_art = AlbumArt(WIDTH, HEIGHT)
-
 renderer = Renderer(WIDTH, HEIGHT)
+album = AlbumArt(WIDTH, HEIGHT)
+
+# ------------------
+# INPUT STATE
+# ------------------
+
+prompt = ""
+
+running = True
 
 # ------------------
 # LOOP
 # ------------------
-
-running = True
 
 while running:
 
@@ -77,70 +72,33 @@ while running:
         if event.type == pygame.QUIT:
             running = False
 
-        if event.type == pygame.KEYDOWN:
+        elif event.type == pygame.KEYDOWN:
 
-            if event.key == pygame.K_RETURN:
+            if event.key == pygame.K_ESCAPE:
+                running = False
+
+            elif event.key == pygame.K_RETURN:
 
                 if prompt.strip():
 
-                    try:
-
-                        music_file = generate_music(
-                            prompt
-                        )
-
-                        pygame.mixer.music.load(
-                            music_file
-                        )
-
-                        pygame.mixer.music.play()
-
-                        music_loaded = True
-
-                    except Exception as e:
-
-                        print(
-                            "Music generation error:",
-                            e
-                        )
+                    music_file = generate_music(prompt)
+                    pygame.mixer.music.load(music_file)
+                    pygame.mixer.music.play()
 
                     prompt = ""
 
             elif event.key == pygame.K_BACKSPACE:
-
                 prompt = prompt[:-1]
 
             else:
-
                 prompt += event.unicode
 
     # ------------------
-    # AUDIO INPUT
+    # AUDIO (for visuals only)
     # ------------------
 
-    try:
-
-        data = stream.read(
-            CHUNK,
-            exception_on_overflow=False
-        )
-
-        samples = np.frombuffer(
-            data,
-            dtype=np.int16
-        )
-
-    except:
-
-        samples = np.zeros(CHUNK)
-
-    # ------------------
-    # ANALYSIS
-    # ------------------
-
-    bass, mids, highs = get_frequency_bands(
-        samples
-    )
+    samples = np.zeros(1024)
+    bass, mids, highs = get_frequency_bands(samples)
 
     renderer.update(bass)
 
@@ -148,85 +106,41 @@ while running:
     # DRAW
     # ------------------
 
-    draw_space_background(screen)
+    draw_space(screen)
 
-    album_art.draw(screen)
-
+    album.draw(screen)
     renderer.draw(screen)
-
-    visualizer.draw_wave(
-        screen,
-        samples
-    )
+    visualizer.draw_wave(screen, samples)
 
     # ------------------
     # PROMPT BAR
     # ------------------
 
-    bar_height = 60
+    bar_h = 60
 
     pygame.draw.rect(
         screen,
-        (30, 30, 45),
-        (
-            20,
-            HEIGHT - 80,
-            WIDTH - 40,
-            bar_height
-        ),
+        (20, 20, 30),
+        (20, HEIGHT - 80, WIDTH - 40, bar_h),
         border_radius=12
     )
 
     pygame.draw.rect(
         screen,
-        (120, 140, 200),
-        (
-            20,
-            HEIGHT - 80,
-            WIDTH - 40,
-            bar_height
-        ),
+        (255, 80, 160),
+        (20, HEIGHT - 80, WIDTH - 40, bar_h),
         2,
         border_radius=12
     )
 
-    display_text = (
-        prompt
-        if prompt
-        else "Type a music prompt and press Enter..."
-    )
-
-    color = (
-        (255, 255, 255)
-        if prompt
-        else (150, 150, 150)
-    )
-
-    prompt_surface = font.render(
-        display_text,
-        True,
-        color
-    )
+    text = prompt if prompt else "Type a music prompt..."
+    color = (255, 255, 255) if prompt else (150, 150, 150)
 
     screen.blit(
-        prompt_surface,
-        (
-            40,
-            HEIGHT - 63
-        )
+        font.render(text, True, color),
+        (40, HEIGHT - 62)
     )
 
     pygame.display.flip()
-
-# ------------------
-# CLEANUP
-# ------------------
-
-stream.stop_stream()
-stream.close()
-
-p.terminate()
-
-pygame.mixer.music.stop()
 
 pygame.quit()

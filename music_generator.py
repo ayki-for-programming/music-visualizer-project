@@ -2,116 +2,34 @@ import numpy as np
 import wave
 import random
 
-stars = [
-    (random.randint(0, WIDTH), random.randint(0, HEIGHT), random.randint(1, 3))
-    for _ in range(150)
-]
-
-def draw_space_background(screen):
-    screen.fill((0, 0, 0))  # black space
-
-    for i in range(len(stars)):
-
-        x, y, size = stars[i]
-
-        y += size * 0.2
-
-        if y > HEIGHT:
-            y = 0
-            x = random.randint(0, WIDTH)
-
-        stars[i] = (x, y, size)
-
-        pygame.draw.circle(screen, (255, 255, 255), (int(x), int(y)), size)
-
-    for x, y, size in stars:
-        pygame.draw.circle(screen, (255, 255, 255), (x, y), size)
-
 SAMPLE_RATE = 44100
 
-
-# -------------------------
-# WAV SHAPES
-# -------------------------
 
 def sine(freq, t):
     return np.sin(2 * np.pi * freq * t)
 
-def square(freq, t):
-    return np.sign(np.sin(2 * np.pi * freq * t))
 
-
-# -------------------------
-# NOTE BUILDER
-# -------------------------
-
-def make_note(freqs, duration):
+def make_chord(freqs, duration):
     t = np.linspace(0, duration, int(SAMPLE_RATE * duration), False)
 
-    audio = np.zeros_like(t)
+    audio = sum(sine(f, t) for f in freqs) / len(freqs)
 
-    for f in freqs:
-        audio += sine(f, t)
-
-    audio /= len(freqs)
-
-    # envelope (removes clicks)
     envelope = np.sin(np.linspace(0, np.pi, len(audio)))
 
     return audio * envelope
 
 
-# -------------------------
-# DRUM BEAT
-# -------------------------
-
-def kick(dur):
-    t = np.linspace(0, dur, int(SAMPLE_RATE * dur), False)
-    return np.sin(2 * np.pi * 60 * t) * np.exp(-5 * t)
-
-def snare(dur):
-    noise = np.random.uniform(-1, 1, int(SAMPLE_RATE * dur))
-    return noise * np.exp(-8 * np.linspace(0, dur, len(noise)))
-
-
-# -------------------------
-# TRACK BUILDER
-# -------------------------
-
-def build_track(chords, bpm=90):
-    beat = 60 / bpm
-    audio = []
-
-    for i, chord in enumerate(chords):
-
-        # chord
-        audio.append(make_note(chord, beat))
-
-        # simple drums
-        if i % 2 == 0:
-            audio[-1] += kick(beat)
-        else:
-            audio[-1] += snare(beat)
-
-    return np.concatenate(audio)
-
-
-# -------------------------
-# PROMPT → MUSIC MAP
-# -------------------------
-
 def generate_music(prompt):
 
     prompt = prompt.lower()
 
-    if "lofi" in prompt or "chill" in prompt:
+    if "lofi" in prompt:
 
         chords = [
             [220, 261, 330],
             [196, 247, 294],
             [174, 220, 261],
-            [196, 247, 330],
-        ] * 8
+        ] * 10
 
         bpm = 80
 
@@ -121,8 +39,7 @@ def generate_music(prompt):
             [261, 311, 392],
             [246, 293, 370],
             [220, 277, 349],
-            [196, 247, 330],
-        ] * 8
+        ] * 10
 
         bpm = 110
 
@@ -130,22 +47,11 @@ def generate_music(prompt):
 
         chords = [
             [110, 165, 220],
-            [110, 147, 196],
             [98, 147, 196],
-            [110, 165, 220],
-        ] * 10
+            [110, 147, 220],
+        ] * 12
 
         bpm = 140
-
-    elif "sad" in prompt:
-
-        chords = [
-            [220, 261, 329],
-            [196, 246, 311],
-            [174, 220, 261],
-        ] * 10
-
-        bpm = 70
 
     else:
 
@@ -153,23 +59,27 @@ def generate_music(prompt):
 
         chords = [
             random.sample(base, 3)
-            for _ in range(30)
+            for _ in range(25)
         ]
 
         bpm = 100
 
-    audio = build_track(chords, bpm)
+    beat = 60 / bpm
 
-    audio = audio / np.max(np.abs(audio)) * 32767
+    audio = np.concatenate([
+        make_chord(ch, beat)
+        for ch in chords
+    ])
 
-    audio = audio.astype(np.int16)
+    audio = audio / np.max(np.abs(audio))
+    audio = (audio * 32767).astype(np.int16)
 
-    filename = "generated_music.wav"
+    file = "generated_music.wav"
 
-    with wave.open(filename, "w") as f:
+    with wave.open(file, "w") as f:
         f.setnchannels(1)
         f.setsampwidth(2)
         f.setframerate(SAMPLE_RATE)
         f.writeframes(audio.tobytes())
 
-    return filename
+    return file

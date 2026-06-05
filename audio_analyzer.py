@@ -3,10 +3,10 @@ import numpy as np
 def get_frequency_bands(samples):
 
     fft = np.fft.rfft(samples)
-    magnitude = np.abs(fft)
+    mag = np.abs(fft)
 
-    bass = np.mean(magnitude[:50])
-    mids = np.mean(magnitude[50:300])
-    highs = np.mean(magnitude[300:])
+    bass = np.mean(mag[:50])
+    mids = np.mean(mag[50:200])
+    highs = np.mean(mag[200:])
 
     return bass, mids, highs
