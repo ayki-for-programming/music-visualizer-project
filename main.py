@@ -15,7 +15,6 @@ from audio_analyzer import get_frequency_bands
 pygame.init()
 pygame.mixer.init()
 
-# Smaller, cleaner Spotify-like size
 WIDTH, HEIGHT = 1150, 700
 
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
@@ -30,15 +29,17 @@ font_small = pygame.font.SysFont("arial", 18)
 visualizer = Visualizer(WIDTH, HEIGHT)
 
 # ------------------
-# COLORS
+# COLORS (PINK THEME ONLY)
 # ------------------
 
-BASE_BG = (18, 18, 18)
-SIDEBAR = (12, 12, 12)
-CARD = (35, 35, 35)
-GREEN = (29, 185, 84)
+BASE_BG = (18, 10, 14)
+SIDEBAR = (12, 8, 10)
+CARD = (25, 15, 20)
+
+PINK = (255, 60, 120)
+HOT_PINK = (255, 20, 90)
+LIGHT = (200, 180, 190)
 WHITE = (255, 255, 255)
-LIGHT = (180, 180, 180)
 
 # ------------------
 # STATE
@@ -54,44 +55,43 @@ generating = False
 
 track_history = []
 
-# Play button
-play_rect = pygame.Rect(WIDTH // 2 - 35, HEIGHT - 100, 70, 70)
+play_rect = pygame.Rect(WIDTH // 2 - 35, HEIGHT - 95, 70, 70)
 
 # ------------------
-# AUDIO HELPERS
+# AUDIO
 # ------------------
 
 def get_samples(file_path, sample_pos):
+
     try:
         with wave.open(file_path, "rb") as wf:
+
             total = wf.getnframes()
 
             if total < 2048:
                 return np.zeros(2048)
 
             sample_pos = max(0, min(sample_pos, total - 2048))
+
             wf.setpos(sample_pos)
 
             data = wf.readframes(2048)
 
             samples = np.frombuffer(data, dtype=np.int16)
 
-            # FIX: stereo → mono
+            # stereo → mono
             if len(samples) % 2 == 0:
                 samples = samples.reshape(-1, 2)
                 samples = samples.mean(axis=1)
 
-            if len(samples) == 0:
-                return np.zeros(2048)
-
             return samples
 
-    except Exception as e:
-        print("Audio read error:", e)
+    except:
         return np.zeros(2048)
 
 
 def get_track_duration(file_path):
+
     try:
         with wave.open(file_path, "rb") as wf:
             return wf.getnframes() / wf.getframerate()
@@ -100,31 +100,32 @@ def get_track_duration(file_path):
 
 
 # ------------------
-# MUSIC THREAD
+# GENERATION THREAD
 # ------------------
 
-def generate_async(user_prompt):
+def generate_async(text):
+
     global current_file, current_track, generating, playing, paused
 
     generating = True
 
     try:
-        filename = generate_music(user_prompt)
+        file = generate_music(text)
 
-        current_file = filename
-        current_track = user_prompt
+        current_file = file
+        current_track = text
 
-        if user_prompt not in track_history:
-            track_history.insert(0, user_prompt)
+        if text not in track_history:
+            track_history.insert(0, text)
 
-        pygame.mixer.music.load(filename)
+        pygame.mixer.music.load(file)
         pygame.mixer.music.play()
 
         playing = True
         paused = False
 
     except Exception as e:
-        print("Generation error:", e)
+        print("Error:", e)
 
     generating = False
 
@@ -136,6 +137,7 @@ def generate_async(user_prompt):
 running = True
 
 while running:
+
     clock.tick(60)
 
     # ------------------
@@ -153,12 +155,13 @@ while running:
                 running = False
 
             elif event.key == pygame.K_RETURN and prompt.strip() and not generating:
-                user_prompt = prompt
+
+                text = prompt
                 prompt = ""
 
                 threading.Thread(
                     target=generate_async,
-                    args=(user_prompt,),
+                    args=(text,),
                     daemon=True
                 ).start()
 
@@ -166,7 +169,9 @@ while running:
                 prompt = prompt[:-1]
 
             elif event.key == pygame.K_SPACE:
+
                 if current_file:
+
                     if paused:
                         pygame.mixer.music.unpause()
                         paused = False
@@ -179,7 +184,9 @@ while running:
                     prompt += event.unicode
 
         elif event.type == pygame.MOUSEBUTTONDOWN:
+
             if play_rect.collidepoint(event.pos) and current_file:
+
                 if paused:
                     pygame.mixer.music.unpause()
                     paused = False
@@ -188,26 +195,29 @@ while running:
                     paused = True
 
     # ------------------
-    # AUDIO
+    # AUDIO DATA
     # ------------------
 
     if current_file and os.path.exists(current_file):
-        pos_ms = pygame.mixer.music.get_pos()
-        sample_pos = int(max(pos_ms, 0) * 44.1)
+
+        pos = pygame.mixer.music.get_pos()
+        sample_pos = int(max(pos, 0) * 44.1)
+
         samples = get_samples(current_file, sample_pos)
+
     else:
         samples = np.zeros(2048)
 
     bass, mids, highs = get_frequency_bands(samples)
 
     # ------------------
-    # MUSIC-REACTIVE BACKGROUND
+    # BACKGROUND (PINK REACTIVE)
     # ------------------
 
     screen.fill((
-        int(18 + bass * 30),
-        int(18 + mids * 20),
-        int(18 + highs * 25)
+        int(18 + bass * 35),
+        int(10 + mids * 20),
+        int(14 + highs * 25)
     ))
 
     # ------------------
@@ -217,12 +227,12 @@ while running:
     pygame.draw.rect(screen, SIDEBAR, (0, 0, 260, HEIGHT))
 
     screen.blit(
-        font_large.render("SpotifAY", True, GREEN),
+        font_large.render("SpotifAY", True, PINK),
         (25, 25)
     )
 
     screen.blit(
-        font.render("Your Library", True, LIGHT),
+        font.render("Library", True, LIGHT),
         (25, 90)
     )
 
@@ -232,31 +242,28 @@ while running:
         y += 28
 
     # ------------------
-    # MAIN CARD
+    # MAIN TITLE
     # ------------------
-
-
-    pulse = int(80 + bass * 120)
-
 
     screen.blit(
         font_large.render(current_track, True, WHITE),
-        (320, 630)
+        (300, 40)
     )
 
     status = "Generating..." if generating else ("Paused" if paused else "Playing" if playing else "Idle")
 
-    screen.blit(font.render(status, True, LIGHT), (320, 665))
+    screen.blit(font.render(status, True, LIGHT), (300, 80))
 
     # ------------------
     # PROGRESS BAR
     # ------------------
 
-    bar_x, bar_y, bar_w = 320, 690, 700
+    bar_x, bar_y, bar_w = 300, 110, 700
 
-    pygame.draw.rect(screen, (60, 60, 60), (bar_x, bar_y, bar_w, 6), border_radius=4)
+    pygame.draw.rect(screen, (50, 30, 40), (bar_x, bar_y, bar_w, 6), border_radius=4)
 
     if current_file:
+
         duration = get_track_duration(current_file)
         pos = pygame.mixer.music.get_pos() / 1000
 
@@ -265,13 +272,13 @@ while running:
 
             pygame.draw.rect(
                 screen,
-                GREEN,
+                HOT_PINK,
                 (bar_x, bar_y, int(bar_w * progress), 6),
                 border_radius=4
             )
 
     # ------------------
-    # VISUALS
+    # VISUALIZER (ONLY SOURCE OF WAVES)
     # ------------------
 
     visualizer.draw_wave(screen, samples, bass, mids, highs)
@@ -280,15 +287,18 @@ while running:
     # PLAY BUTTON
     # ------------------
 
-    pygame.draw.circle(screen, GREEN, play_rect.center, 35)
+    pygame.draw.circle(screen, PINK, play_rect.center, 35)
 
     if paused or not playing:
+
         pygame.draw.polygon(screen, (0, 0, 0), [
             (play_rect.centerx - 8, play_rect.centery - 15),
             (play_rect.centerx - 8, play_rect.centery + 15),
             (play_rect.centerx + 15, play_rect.centery)
         ])
+
     else:
+
         pygame.draw.rect(screen, (0, 0, 0), (play_rect.centerx - 12, play_rect.centery - 15, 8, 30))
         pygame.draw.rect(screen, (0, 0, 0), (play_rect.centerx + 4, play_rect.centery - 15, 8, 30))
 
@@ -296,12 +306,12 @@ while running:
     # INPUT BOX
     # ------------------
 
-    pygame.draw.rect(screen, CARD, (300, HEIGHT - 50, WIDTH - 340, 40), border_radius=10)
-    pygame.draw.rect(screen, GREEN, (300, HEIGHT - 50, WIDTH - 340, 40), 2, border_radius=10)
+    pygame.draw.rect(screen, CARD, (300, HEIGHT - 55, 700, 40), border_radius=10)
+    pygame.draw.rect(screen, PINK, (300, HEIGHT - 55, 700, 40), 2, border_radius=10)
 
     screen.blit(
         font.render(prompt or "Type a music prompt...", True, WHITE),
-        (320, HEIGHT - 42)
+        (320, HEIGHT - 45)
     )
 
     pygame.display.flip()
