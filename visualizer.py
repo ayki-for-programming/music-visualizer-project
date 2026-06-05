@@ -14,28 +14,27 @@ class Visualizer:
 
 
     # ----------------------------
-    # PARTICLES (music reactive)
+    # PARTICLES
     # ----------------------------
 
     def update_particles(self, bass, mids):
 
         intensity = bass + mids
 
-        # spawn particles on beat energy
         if intensity > 0.25:
 
-            for _ in range(int(1 + intensity * 6)):
+            for _ in range(int(1 + intensity * 4)):
 
                 self.particles.append([
 
-                    random.randint(320, self.w - 50),
+                    random.randint(self.w // 2 - 200, self.w // 2 + 200),
                     self.h // 2,
 
-                    random.uniform(-2.5, 2.5),
-                    random.uniform(-6, -1),
+                    random.uniform(-2, 2),
+                    random.uniform(-5, -1),
 
-                    random.randint(2, 5),   # size
-                    random.uniform(0.7, 1.0) # life
+                    random.randint(2, 4),
+                    random.uniform(0.7, 1.0)
                 ])
 
         alive = []
@@ -44,7 +43,6 @@ class Visualizer:
 
             p[0] += p[2]
             p[1] += p[3]
-
             p[5] -= 0.02
 
             if p[5] > 0:
@@ -54,32 +52,32 @@ class Visualizer:
 
 
     # ----------------------------
-    # SPECTRUM (Spotify bars)
+    # SPECTRUM (inside card)
     # ----------------------------
 
-    def draw_spectrum(self, screen, samples):
+    def draw_spectrum(self, screen, samples, rect):
 
         if len(samples) < 128:
             return
 
         try:
+
             samples = samples.astype(np.float32)
 
-            # stereo → mono safety
             if len(samples.shape) > 1:
                 samples = samples.mean(axis=1)
 
             fft = np.fft.rfft(samples)
             mag = np.abs(fft)
 
-            bars = 60
+            bars = 50
             chunk = max(1, len(mag) // bars)
 
-            x_start = 320
-            y_base = self.h - 170
+            x_start = rect.x + 40
+            y_base = rect.y + rect.height - 40
 
-            bar_w = 8
-            spacing = 5
+            bar_w = 6
+            spacing = 4
 
             for i in range(bars):
 
@@ -88,30 +86,23 @@ class Visualizer:
 
                 value = np.mean(mag[start:end])
 
-                height = int(min(260, value / 250))
+                height = int(min(180, value / 300))
 
                 x = x_start + i * (bar_w + spacing)
 
-                # gradient green
-                color = (
-                    30,
-                    min(255, 120 + i * 2),
-                    90
-                )
-
                 pygame.draw.rect(
                     screen,
-                    color,
+                    (30, 180, 90),
                     (x, y_base - height, bar_w, height),
-                    border_radius=3
+                    border_radius=2
                 )
 
-        except Exception as e:
-            print("Spectrum error:", e)
+        except:
+            pass
 
 
     # ----------------------------
-    # WAVEFORM (main visual)
+    # WAV FORM (CENTERED PANEL)
     # ----------------------------
 
     def draw_wave(self, screen, samples, bass, mids, highs):
@@ -123,21 +114,43 @@ class Visualizer:
 
             samples = samples.astype(np.float32)
 
-            # stereo → mono safety
             if len(samples.shape) > 1:
                 samples = samples.mean(axis=1)
 
-            center_y = self.h // 2
+            # ----------------------------
+            # MAIN VISUAL CARD (CENTERED)
+            # ----------------------------
 
-            width_area = self.w - 320
+            rect = pygame.Rect(
+                self.w // 2 - 350,
+                self.h // 2 - 200,
+                700,
+                350
+            )
 
-            step = max(1, len(samples) // width_area)
+            # subtle background panel
+            pygame.draw.rect(
+                screen,
+                (28, 28, 28),
+                rect,
+                border_radius=20
+            )
+
+            # waveform area
+            inner_x = rect.x + 30
+            inner_y = rect.y + 40
+            inner_w = rect.width - 60
+            inner_h = rect.height - 100
+
+            center_y = inner_y + inner_h // 2
+
+            step = max(1, len(samples) // inner_w)
 
             points = []
 
             reaction = 1 + bass * 4 + mids * 2
 
-            for x in range(width_area):
+            for x in range(inner_w):
 
                 idx = x * step
 
@@ -146,36 +159,31 @@ class Visualizer:
 
                 amp = (samples[idx] / 32768) * reaction
 
-                y = center_y + int(
-                    amp * (160 + bass * 250)
-                )
+                y = center_y + int(amp * (80 + bass * 120))
 
-                points.append((320 + x, y))
+                points.append((inner_x + x, y))
 
             glow = int(120 + bass * 120)
-            thickness = int(2 + bass * 8)
+            thickness = int(2 + bass * 6)
 
             if len(points) > 1:
 
-                # outer glow
                 pygame.draw.lines(
                     screen,
                     (40, glow, 120),
                     False,
                     points,
-                    thickness + 8
+                    thickness + 6
                 )
 
-                # mid glow
                 pygame.draw.lines(
                     screen,
                     (90, 255, 180),
                     False,
                     points,
-                    thickness + 4
+                    thickness + 3
                 )
 
-                # core line
                 pygame.draw.lines(
                     screen,
                     (29, 185, 84),
@@ -184,10 +192,10 @@ class Visualizer:
                     thickness
                 )
 
-            # spectrum bars
-            self.draw_spectrum(screen, samples)
+            # spectrum INSIDE same card
+            self.draw_spectrum(screen, samples, rect)
 
-            # particles
+            # particles centered
             self.update_particles(bass, mids)
 
             for p in self.particles:
