@@ -6,7 +6,7 @@ class Visualizer:
     def __init__(self, w, h):
         self.w = w
         self.h = h
-        self.phase = 0.0  # motion driver
+        self.phase = 0.0
 
     def draw_wave(self, screen, samples, bass, mids, highs):
 
@@ -19,72 +19,61 @@ class Visualizer:
             samples = samples.mean(axis=1)
 
         # -----------------------------
-        # SMALL BOTTOM STRIP (NOT CENTER)
+        # CIRCLE POSITION (RIGHT SIDE)
         # -----------------------------
-        rect = pygame.Rect(
-            300,
-            self.h - 140,
-            self.w - 340,
-            90
-        )
+        cx = int(self.w * 0.78)
+        cy = int(self.h * 0.50)
 
-        pygame.draw.rect(screen, (10, 6, 8), rect, border_radius=12)
+        base_radius = 110 + bass * 60
 
-        inner_x = rect.x + 10
-        inner_y = rect.y + 10
-        inner_w = rect.width - 20
-        inner_h = rect.height - 20
-
-        center = inner_y + inner_h // 2
-
-        step = max(1, len(samples) // inner_w)
+        self.phase += 0.08 + highs * 0.4
 
         points = []
 
         # -----------------------------
-        # "ALIVE" MOTION ENGINE
+        # CIRCLE WAVEFORM ENGINE
         # -----------------------------
-        self.phase += 0.15 + highs * 0.5
+        steps = 140  # resolution of circle
 
-        bass_boost = 1 + bass * 4
-        mid_boost = 1 + mids * 2
+        for i in range(steps):
 
-        for x in range(inner_w):
+            angle = (i / steps) * np.pi * 2
 
-            idx = x * step
-            if idx >= len(samples):
-                break
-
+            idx = int((i / steps) * len(samples))
             val = samples[idx] / 32768
 
-            # 🔥 add wave motion even when silent
-            motion = np.sin(x * 0.08 + self.phase) * 0.15
+            # audio shaping
+            audio = val * (1 + bass * 3)
 
-            amp = val * bass_boost * mid_boost + motion * highs
+            # living motion (keeps it moving even when silent)
+            motion = np.sin(angle * 3 + self.phase) * 0.12
 
-            # sharpen + exaggerate peaks
-            amp = np.sign(amp) * (abs(amp) ** 0.65)
+            # highs = jitter spikes
+            jitter = (np.random.rand() - 0.5) * highs * 0.3
 
-            y = center + int(amp * 60)
+            radius = base_radius + (audio * 90) + (motion * 40) + (jitter * 80)
 
-            points.append((inner_x + x, y))
+            x = cx + np.cos(angle) * radius
+            y = cy + np.sin(angle) * radius
+
+            points.append((x, y))
 
         # -----------------------------
-        # DRAW MAIN WAVE
+        # DRAW OUTER GLOW RINGS
+        # -----------------------------
+        pygame.draw.circle(screen, (25, 10, 18), (cx, cy), int(base_radius + 60))
+        pygame.draw.circle(screen, (255, 40, 120), (cx, cy), int(base_radius), 2)
+
+        # -----------------------------
+        # DRAW WAVEFORM CIRCLE
         # -----------------------------
         if len(points) > 2:
-            pygame.draw.lines(screen, (255, 40, 120), False, points, 2)
-            pygame.draw.lines(screen, (255, 160, 220), False, points, 1)
+
+            pygame.draw.lines(screen, (255, 60, 140), True, points, 2)
+            pygame.draw.lines(screen, (255, 180, 220), True, points, 1)
 
         # -----------------------------
-        # "ENERGY DOTS" (makes it feel alive)
+        # CENTER PULSE (kick reaction feel)
         # -----------------------------
-        if highs > 0.2:
-            for i in range(0, len(points), 18):
-                x, y = points[i]
-                pygame.draw.circle(
-                    screen,
-                    (255, 80, 160),
-                    (x, y),
-                    2
-                )
+        pulse = 6 + bass * 20
+        pygame.draw.circle(screen, (255, 80, 160), (cx, cy), int(pulse))
