@@ -1,67 +1,292 @@
 import pygame
 import numpy as np
+import random
+
 
 class Visualizer:
 
-    def __init__(self, w, h):
-        self.w = w
-        self.h = h
+    def __init__(self, width, height):
 
-    def draw_wave(self, screen, samples, pulse=0):
+        self.w = width
+        self.h = height
+
+        self.particles = []
+
+    # ------------------
+    # PARTICLES
+    # ------------------
+
+    def update_particles(self, bass):
+
+        if bass > 0.25:
+
+            for _ in range(3):
+
+                self.particles.append(
+
+                    [
+                        random.randint(
+                            300,
+                            self.w - 100
+                        ),
+
+                        self.h // 2,
+
+                        random.uniform(
+                            -2,
+                            2
+                        ),
+
+                        random.uniform(
+                            -4,
+                            -1
+                        ),
+
+                        random.randint(
+                            2,
+                            5
+                        )
+                    ]
+                )
+
+        alive = []
+
+        for p in self.particles:
+
+            p[0] += p[2]
+            p[1] += p[3]
+
+            p[4] -= 0.03
+
+            if p[4] > 0:
+
+                alive.append(p)
+
+        self.particles = alive
+
+    # ------------------
+    # SPECTRUM
+    # ------------------
+
+    def draw_spectrum(
+        self,
+        screen,
+        samples
+    ):
+
+        if len(samples) < 256:
+            return
+
+        try:
+
+            samples = samples.astype(
+                np.float32
+            )
+
+            fft = np.fft.rfft(samples)
+
+            mag = np.abs(fft)
+
+            bars = 64
+
+            chunk = max(
+                1,
+                len(mag) // bars
+            )
+
+            start_x = 320
+
+            width = 10
+
+            spacing = 5
+
+            for i in range(bars):
+
+                begin = i * chunk
+                end = begin + chunk
+
+                value = np.mean(
+                    mag[begin:end]
+                )
+
+                height = min(
+                    250,
+                    int(value / 300)
+                )
+
+                x = start_x + (
+                    i * (
+                        width + spacing
+                    )
+                )
+
+                y = self.h - 180
+
+                color = (
+                    30,
+                    min(
+                        255,
+                        180 + i
+                    ),
+                    96
+                )
+
+                pygame.draw.rect(
+                    screen,
+                    color,
+                    (
+                        x,
+                        y - height,
+                        width,
+                        height
+                    ),
+                    border_radius=3
+                )
+
+        except:
+            pass
+
+    # ------------------
+    # WAVEFORM
+    # ------------------
+
+    def draw_wave(
+        self,
+        screen,
+        samples,
+        bass
+    ):
 
         if len(samples) < 10:
             return
 
-        samples = samples.astype(np.float32)
+        try:
 
-        center_y = self.h // 2 + 40
-
-        step = max(1, len(samples) // self.w)
-
-        points = []
-
-        for x in range(self.w):
-
-            i = x * step
-
-            if i < len(samples):
-
-                amp = samples[i] / 2000
-                y = center_y + int(amp * 120)
-
-                points.append((x, y))
-
-        if len(points) > 1:
-
-            # pulse affects glow intensity + thickness
-
-            glow = int(80 + pulse * 175)
-
-            thickness = int(2 + pulse * 6)
-
-            # outer glow
-            pygame.draw.lines(
-                screen,
-                (255, 60, 140),
-                False,
-                points,
-                thickness + 6
+            samples = samples.astype(
+                np.float32
             )
 
-            # mid glow
-            pygame.draw.lines(
-                screen,
-                (255, glow, 200),
-                False,
-                points,
-                thickness + 3
+            center_y = (
+                self.h // 2
             )
 
-            # core line
-            pygame.draw.lines(
+            step = max(
+                1,
+                len(samples) // (
+                    self.w - 300
+                )
+            )
+
+            points = []
+
+            start_x = 300
+
+            for x in range(
+                self.w - 320
+            ):
+
+                idx = x * step
+
+                if idx >= len(samples):
+                    break
+
+                amp = (
+                    samples[idx]
+                    / 32768
+                )
+
+                y = (
+                    center_y
+                    + int(
+                        amp * 180
+                    )
+                )
+
+                points.append(
+                    (
+                        start_x + x,
+                        y
+                    )
+                )
+
+            glow = int(
+                120 + bass * 100
+            )
+
+            thickness = int(
+                2 + bass * 10
+            )
+
+            if len(points) > 1:
+
+                pygame.draw.lines(
+                    screen,
+                    (
+                        40,
+                        glow,
+                        120
+                    ),
+                    False,
+                    points,
+                    thickness + 8
+                )
+
+                pygame.draw.lines(
+                    screen,
+                    (
+                        100,
+                        255,
+                        180
+                    ),
+                    False,
+                    points,
+                    thickness + 4
+                )
+
+                pygame.draw.lines(
+                    screen,
+                    (
+                        29,
+                        185,
+                        84
+                    ),
+                    False,
+                    points,
+                    thickness
+                )
+
+            self.draw_spectrum(
                 screen,
-                (30, 215, 96),
-                False,
-                points,
-                thickness
+                samples
+            )
+
+            self.update_particles(
+                bass
+            )
+
+            for p in self.particles:
+
+                pygame.draw.circle(
+
+                    screen,
+
+                    (
+                        29,
+                        185,
+                        84
+                    ),
+
+                    (
+                        int(p[0]),
+                        int(p[1])
+                    ),
+
+                    int(p[4])
+                )
+
+        except Exception as e:
+
+            print(
+                "Visualizer error:",
+                e
             )
