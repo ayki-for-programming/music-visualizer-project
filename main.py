@@ -7,12 +7,14 @@ from audio_analyzer import get_frequency_bands
 
 pygame.init()
 
-WIDTH, HEIGHT = 1150, 700
-screen = pygame.display.set_mode((WIDTH, HEIGHT))
+# -------------------------
+# FULLSCREEN SETUP
+# -------------------------
+screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
+WIDTH, HEIGHT = screen.get_size()
 pygame.display.set_caption("DJ PAD ENGINE")
 
 clock = pygame.time.Clock()
-
 font = pygame.font.SysFont("arial", 20, bold=True)
 
 engine = DJEngine()
@@ -72,7 +74,7 @@ key_map = {
 }
 
 # -------------------------
-# AUDIO BUFFER (for visuals only)
+# AUDIO BUFFER (visual only)
 # -------------------------
 audio_buffer = np.zeros(2048)
 
@@ -90,9 +92,16 @@ while running:
 
         elif event.type == pygame.KEYDOWN:
 
+            # -------------------------
+            # ESC = SAFE EXIT (FULLSCREEN FIX)
+            # -------------------------
             if event.key == pygame.K_ESCAPE:
                 running = False
+                pygame.display.set_mode((1150, 700))  # restore window before exit
 
+            # -------------------------
+            # PAD TRIGGER
+            # -------------------------
             if event.key in key_map:
                 i = key_map[event.key]
 
@@ -103,6 +112,9 @@ while running:
                 audio_buffer = np.roll(audio_buffer, -256)
                 audio_buffer[-256:] = noise
 
+        # -------------------------
+        # MOUSE PAD TRIGGER
+        # -------------------------
         elif event.type == pygame.MOUSEBUTTONDOWN:
             for i, r in enumerate(pad_rects):
                 if r.collidepoint(event.pos):
@@ -122,7 +134,7 @@ while running:
     bass, mids, highs = get_frequency_bands(audio_buffer)
 
     # -------------------------
-    # BACKGROUND (reactive)
+    # BACKGROUND
     # -------------------------
     screen.fill((
         int(18 + bass * 80),
@@ -133,10 +145,10 @@ while running:
     # -------------------------
     # TITLE
     # -------------------------
-    screen.blit(font.render("DJ PAD ENGINE (1-6 or click)", True, WHITE), (40, 30))
+    screen.blit(font.render("AY-DJ PAD (1-6 or click, ESC to exit)", True, WHITE), (40, 30))
 
     # -------------------------
-    # PAD RENDERING
+    # PADS
     # -------------------------
     for i, rect in enumerate(pad_rects):
         pulse = pad_anim[i]
@@ -147,7 +159,6 @@ while running:
             60 + int(140 * pulse),
         )
 
-        # glow
         pygame.draw.rect(
             screen,
             (255, 40, 120) if pulse > 0 else DARK,
@@ -155,17 +166,14 @@ while running:
             border_radius=14
         )
 
-        # pad body
         pygame.draw.rect(screen, color, rect, border_radius=12)
-
-        # border
         pygame.draw.rect(screen, PINK, rect, 2, border_radius=12)
 
         label = font.render(f"{i+1} {pads[i][0]}", True, WHITE)
         screen.blit(label, (rect.x + 55, rect.y + 45))
 
     # -------------------------
-    # CIRCULAR WAVEFORM (RIGHT SIDE)
+    # CIRCULAR WAVEFORM
     # -------------------------
     viz.draw_wave(screen, audio_buffer, bass, mids, highs)
 
