@@ -281,7 +281,7 @@ while running:
     # VISUALIZER (ONLY SOURCE OF WAVES)
     # ------------------
 
-   # visualizer.draw_wave(screen, samples, bass, mids, highs)
+    visualizer.draw_wave(screen, samples, bass, mids, highs)
 
     # ------------------
     # PLAY BUTTON
